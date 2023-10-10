@@ -1,0 +1,22 @@
+# Executables
+*.out
+*.out.dSYM
+
+# Build steps
+cmake-build-debug/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+*.cbp
+
+# IDE
+.idea/
+
+# Big files
+data/
+models/
+histories/
+
+
+main.cpp

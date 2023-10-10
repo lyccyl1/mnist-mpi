@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Handwritten Digits Recognizer</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+
+    <style>
+        body {
+            text-align: center;
+            /*background-color: #fafafa;*/
+        }
+        canvas {
+            box-shadow: 0 0 10px rgba(128, 128, 128, 0.5);
+            border-radius: 7px;
+            display: block;
+            margin: 150px auto 50px;
+        }
+        button {
+            width: 125px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <canvas id="drawing-box" width="420" height="420"></canvas>
+    <button id="recognize" class="btn btn-secondary">Recognize</button>
+
+    <div id="after-recog">
+        <p>Recognized number <b><span class="prediction">-</span></b> with <span class="conf">-</span>% confidence</p>
+        <button id="reset" class="btn btn-secondary">Reset</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="{{ url_for('static', filename='sketch-custom.min.js') }}"></script>
+    <script>
+        ORIG_SIZE = 420;
+        SMALL_SIZE = 28;
+        factor = ORIG_SIZE / SMALL_SIZE;
+
+
+        box = $('#drawing-box');
+        ctx = box.get(0).getContext('2d');
+        recog = $('#recognize');
+        afterRecog = $('#after-recog');
+
+        box.sketch();
+        recog.hide();
+        afterRecog.hide();
+
+        // Recognize button appears only after something is drawn
+        box.mousedown(function () {
+            if (!afterRecog.is(':visible'))
+                recog.show();
+        });
+
+        recog.click(function() {
+            recog.hide();
+            afterRecog.fadeIn();
+
+            // TODO: start loader here
+            $.getJSON('/recognize', {pixels: resized_pixels().join(',')}, function (result) {
+                afterRecog.find('.prediction').text(result.number);
+                afterRecog.find('.conf').text(Math.round(result.confidence * 100));
+                // TODO: stop loader here
+            });
+        });
+
+        afterRecog.find('button').click(function () {
+           afterRecog.hide();
+
+           // Clear drawing box
+           box.sketch().actions = [];
+           ctx.clearRect(0, 0, box.get(0).width, box.get(0).height);
+        });
+
+        function resized_pixels() {
+            var data = ctx.getImageData(0, 0, ORIG_SIZE, ORIG_SIZE).data;
+            var col_sums = new Array(SMALL_SIZE * SMALL_SIZE * factor).fill(0);
+            // 4 channels: +0 is red, +1 is green, +2 is blue, +4 is alpha
+            m = 0;
+
+            for (var i = 0; i < ORIG_SIZE * ORIG_SIZE * 4; i += 4) {
+                var pixel_number = i / 4;
+                var col_number = Math.floor(pixel_number / factor); // 0..15 to 0; 16..31 to 1 etc
+                col_sums[col_number] += data[i];
+                m = Math.max(data[i], m)
+            }
+
+            var small_sums = new Array(SMALL_SIZE * SMALL_SIZE).fill(0);
+            for (i = 0; i < col_sums.length; i++) {
+                // TODO: this can be shortened
+                var row_number = (i % SMALL_SIZE) + Math.floor(i / SMALL_SIZE / factor) * SMALL_SIZE;
+                small_sums[row_number] += col_sums[i];
+            }
+
+            var max = Math.max.apply(null, small_sums); // so it is independent of how much a pixel measures in canvas
+            return small_sums.map(function (x) { return x / max }); // average
+        }
+
+    </script>
+
+
+</body>
+</html>
